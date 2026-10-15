@@ -1,0 +1,50 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "drafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "wakeAt",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "drafts",
+      "fieldPath": "picks",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "drafts",
+      "fieldPath": "events",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "pool",
+      "fieldPath": "cards",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private",
+      "fieldPath": "state",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "cubeCache",
+      "fieldPath": "cube",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "queues",
+      "fieldPath": "cards",
+      "indexes": []
+    }
+  ]
+}

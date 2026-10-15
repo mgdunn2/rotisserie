@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function host(id) { return signedIn() && get(/databases/$(database)/documents/drafts/$(id)).data.host == request.auth.uid; }
+    match /drafts/{id} {
+      // Unlisted: an exact link is public, enumeration is forbidden.
+      allow get: if true;
+      allow list, write: if false;
+      match /pool/{chunk} { allow get, list: if true; allow write: if false; }
+      match /requests/{uid} {
+        allow read: if host(id) || (signedIn() && request.auth.uid == uid);
+        allow write: if false;
+      }
+      match /queues/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list, write: if false;
+      }
+      match /private/{doc} { allow read, write: if false; }
+    }
+    match /users/{uid}/drafts/{id} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
