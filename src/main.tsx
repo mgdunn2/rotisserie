@@ -429,26 +429,14 @@ function App() {
                 REALTIME PICKS
               </div>
             </div>
-            <div className="table-art">
-              <div className="art-grid">
-                {["W", "U", "B", "R", "G"].map((c, i) => (
-                  <div
-                    key={c}
-                    className={"art-card art-" + c}
-                    style={{
-                      transform: `rotate(${(i - 2) * 9}deg) translateY(${Math.abs(i - 2) * 12}px)`,
-                    }}
-                  >
-                    <div>{["☀", "◈", "☾", "✦", "♧"][i]}</div>
-                    <small>
-                      {["WHITE", "BLUE", "BLACK", "RED", "GREEN"][i]}
-                    </small>
-                  </div>
-                ))}
-              </div>
-              <div className="art-caption">
-                <span className="dot" /> ONE SHARED BOARD. EVERY POSSIBILITY.
-              </div>
+            <div className="hero-art">
+              <img
+                src={`${import.meta.env.BASE_URL}rotisserie-hero.png`}
+                width="402"
+                height="324"
+                alt="A red-clad mage tending a flaming rotisserie"
+                fetchPriority="high"
+              />
             </div>
           </section>
           {id && (
