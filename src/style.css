@@ -1234,3 +1234,11 @@ label select {
 .notice {
   z-index: 50;
 }
+.danger {
+  color: #ffd0c5;
+  border-color: #98574a;
+  background: #542f2b;
+}
+.danger:hover {
+  background: #703e35;
+}

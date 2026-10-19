@@ -9,6 +9,7 @@ An asynchronous Magic: The Gathering cube rotisserie draft app. React + TypeScri
 - Configurable random pool size, picks per player, snake/linear order, pick clock, quiet hours, and IANA timezone. Uniform random sampling and seat assignment use Node's cryptographic random generator.
 - Realtime shared board, every player's pool, chronological picks, recent table activity, private ranked autopick queues, local sorts/filters, gallery/list views, card details, and text pool exports.
 - Missed picks bank for the next turn. Each card gets its own clock; final outstanding picks receive catch-up rounds.
+- Host can permanently cancel a lobby, active, or paused draft with confirmation. Clocks/autopicks stop; picks and pools remain viewable/exportable. Cancelled drafts cannot resume or undo.
 - Host pause/resume preserves active time. Undo restores the state immediately before the latest individual selection and pauses the table; resume gives that selection a fresh clock.
 - A useful interactive demo is available before Firebase is configured. Demo changes are session-only; use **Play as** to try different seats.
 
@@ -68,6 +69,18 @@ These are public Firebase web configuration values, not admin credentials. Acces
 3. Open **https://mgdunn2.github.io/rotisserie/** once the deployment succeeds.
 
 The workflow runs tests, checks and builds the functions, builds the web app, and publishes `dist/`. Missing Firebase config deliberately produces the preview/demo rather than a broken login screen. Configuration changes require a new workflow run. `vite.config.ts` already uses `/rotisserie/`; hash routes keep invite links working on static Pages without rewrites.
+
+### Deploying backend updates through GitHub Actions
+
+The Pages workflow now also deploys `functions:draftAction` on pushes to `main` when the repository secret **`FIREBASE_SERVICE_ACCOUNT`** contains a Google Cloud service-account JSON credential authorized to deploy that function. Authentication uses `google-github-actions/auth`; credentials are not bundled into the website. The project comes from the existing `VITE_FIREBASE_PROJECT_ID` repository variable. Only trusted maintainers should be able to push deployment code to `main`.
+
+Without that secret, the workflow publishes the frontend and emits a warning that the backend was skipped. In particular, **Cancel draft requires the updated `draftAction` function**. You can deploy it yourself after `npx firebase login`:
+
+```sh
+npx firebase deploy --only functions:draftAction
+```
+
+The initial Firebase deployment and billing/service-account setup must already be completed. A deploy service account needs permissions appropriate to your existing Cloud Functions build/runtime service accounts (Cloud Functions deployment and service-account impersonation); see [Firebase IAM deployment permissions](https://firebase.google.com/docs/projects/iam/permissions). Keep the credential in GitHub Actions secrets, never a repository variable or committed file. Existing scheduler/rules are unchanged by cancellation.
 
 ## 4. Set billing controls
 

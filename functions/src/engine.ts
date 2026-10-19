@@ -30,7 +30,7 @@ export interface Pick {
   auto: boolean;
 }
 export interface Event {
-  kind: "timeout" | "pause" | "resume" | "undo";
+  kind: "timeout" | "pause" | "resume" | "undo" | "cancel";
   uid: string;
   at: number;
 }
@@ -41,7 +41,7 @@ export interface Draft {
   cubeUrl: string;
   settings: Settings;
   players: Player[];
-  status: "lobby" | "active" | "paused" | "complete";
+  status: "lobby" | "active" | "paused" | "complete" | "cancelled";
   order: string[];
   cursor: number;
   owed: Record<string, number>;

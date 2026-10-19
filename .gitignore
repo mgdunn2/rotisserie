@@ -5,3 +5,5 @@ functions/lib/
 !.env.example
 .firebase/
 *-debug.log*
+
+gha-creds-*.json

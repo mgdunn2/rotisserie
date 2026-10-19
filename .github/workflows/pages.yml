@@ -34,6 +34,28 @@ jobs:
           VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_FUNCTIONS_REGION: us-central1
+      - name: Check Firebase deployment credentials
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        id: firebase
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Firebase backend deployment skipped: add FIREBASE_SERVICE_ACCOUNT or deploy functions:draftAction locally. The cancel action requires the updated backend."
+          fi
+      - name: Authenticate Firebase deployment
+        if: steps.firebase.outputs.configured == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Deploy draft backend
+        if: steps.firebase.outputs.configured == 'true'
+        run: npx firebase deploy --only functions:draftAction --project "$FIREBASE_PROJECT_ID" --non-interactive
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

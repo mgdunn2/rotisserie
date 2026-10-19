@@ -243,7 +243,12 @@ function App() {
       if (demo && d) {
         const copy = structuredClone(d);
         if (action === "pick") choose(copy, uid, String(extra.card), now);
-        else if (action === "pause") {
+        else if (action === "cancel") {
+          copy.status = "cancelled";
+          copy.deadline = 0;
+          copy.remaining = 0;
+          copy.events.push({ kind: "cancel", uid, at: now });
+        } else if (action === "pause") {
           (copy as any).pauseLeft = activeRemaining(
             now,
             copy.deadline,
@@ -565,11 +570,23 @@ function App() {
                   Resume draft
                 </button>
               )}
-              {host && d.picks.length > 0 && !demo && (
-                <button onClick={() => setConfirm("undo")} disabled={busy}>
-                  Undo last pick
+              {host && ["lobby", "active", "paused"].includes(d.status) && (
+                <button
+                  className="danger"
+                  disabled={busy}
+                  onClick={() => setConfirm("cancel")}
+                >
+                  Cancel draft
                 </button>
               )}
+              {host &&
+                d.status !== "cancelled" &&
+                d.picks.length > 0 &&
+                !demo && (
+                  <button onClick={() => setConfirm("undo")} disabled={busy}>
+                    Undo last pick
+                  </button>
+                )}
             </div>
           </div>
           {d.status === "lobby" ? (
@@ -672,42 +689,48 @@ function App() {
             <section className={"turn-bar " + (yourTurn ? "your-turn" : "")}>
               <div>
                 <span className="eyebrow">
-                  {d.status === "complete"
-                    ? "ALL PICKS ARE IN"
-                    : d.status === "paused"
-                      ? "TABLE PAUSED"
-                      : quiet(now, d.settings)
-                        ? "QUIET HOURS"
-                        : yourTurn
-                          ? "YOU’RE ON THE CLOCK"
-                          : "ON THE CLOCK"}
+                  {d.status === "cancelled"
+                    ? "TABLE CLOSED"
+                    : d.status === "complete"
+                      ? "ALL PICKS ARE IN"
+                      : d.status === "paused"
+                        ? "TABLE PAUSED"
+                        : quiet(now, d.settings)
+                          ? "QUIET HOURS"
+                          : yourTurn
+                            ? "YOU’RE ON THE CLOCK"
+                            : "ON THE CLOCK"}
                 </span>
                 <h2>
-                  {d.status === "complete"
-                    ? "The draft is complete."
-                    : d.status === "paused"
-                      ? "Take a breather."
-                      : `${playerName(current(d))}’s turn`}
+                  {d.status === "cancelled"
+                    ? "This draft was cancelled."
+                    : d.status === "complete"
+                      ? "The draft is complete."
+                      : d.status === "paused"
+                        ? "Take a breather."
+                        : `${playerName(current(d))}’s turn`}
                 </h2>
                 <span>
-                  {d.status === "complete"
+                  {["cancelled", "complete"].includes(d.status)
                     ? `${d.picks.length} cards drafted`
                     : `${d.remaining} pick${d.remaining === 1 ? "" : "s"} this turn · Turn ${d.cursor + 1} · ${d.picks.length} / ${d.players.length * d.settings.picksPerPlayer} drafted`}
                 </span>
               </div>
               <div className="clock">
                 <strong>
-                  {d.status === "complete"
-                    ? "✓"
-                    : d.status === "paused"
-                      ? formatTime((d as any).pauseLeft || 0)
-                      : formatTime(
-                          activeRemaining(
-                            now,
-                            Math.max(now, d.deadline),
-                            d.settings,
-                          ),
-                        )}
+                  {d.status === "cancelled"
+                    ? "—"
+                    : d.status === "complete"
+                      ? "✓"
+                      : d.status === "paused"
+                        ? formatTime((d as any).pauseLeft || 0)
+                        : formatTime(
+                            activeRemaining(
+                              now,
+                              Math.max(now, d.deadline),
+                              d.settings,
+                            ),
+                          )}
                 </strong>
                 <small>
                   {d.status === "active" && quiet(now, d.settings)
@@ -718,7 +741,9 @@ function App() {
                         ? `Active time remaining · ${d.settings.timezone}`
                         : d.status === "paused"
                           ? "Remaining time preserved"
-                          : "Ready to build"}
+                          : d.status === "cancelled"
+                            ? "Picks and pools remain available"
+                            : "Ready to build"}
                 </small>
               </div>
             </section>
@@ -998,11 +1023,13 @@ function App() {
                     <h3 className="sidebar-label">Table activity</h3>
                     {[...d.events].reverse().map((e, i) => (
                       <p className="side-help" key={i}>
-                        {e.kind === "timeout"
-                          ? `${playerName(e.uid)} missed a turn; picks banked.`
-                          : e.kind === "undo"
-                            ? "Host undid the latest pick and paused the table."
-                            : `Host ${e.kind === "pause" ? "paused" : "resumed"} the table.`}{" "}
+                        {e.kind === "cancel"
+                          ? "Host cancelled the draft."
+                          : e.kind === "timeout"
+                            ? `${playerName(e.uid)} missed a turn; picks banked.`
+                            : e.kind === "undo"
+                              ? "Host undid the latest pick and paused the table."
+                              : `Host ${e.kind === "pause" ? "paused" : "resumed"} the table.`}{" "}
                         <small>{new Date(e.at).toLocaleString()}</small>
                       </p>
                     ))}
@@ -1154,29 +1181,35 @@ function App() {
             aria-labelledby="confirm-title"
           >
             <h2 id="confirm-title">
-              {confirm === "start"
-                ? "Ready to reveal the pool?"
-                : "Undo the latest pick?"}
+              {confirm === "cancel"
+                ? "Cancel this draft?"
+                : confirm === "start"
+                  ? "Ready to reveal the pool?"
+                  : "Undo the latest pick?"}
             </h2>
             <p>
-              {confirm === "start"
-                ? `Randomly reveal ${d.settings.poolSize} cards and assign ${d.players.length} players a pick order. Seats and settings will be locked.`
-                : "The last selected card returns to the pool and the table pauses. The restored pick gets a fresh clock when you resume. Automatic picks count as individual picks."}
+              {confirm === "cancel"
+                ? "This permanently stops the draft for everyone. The clock and autopicks stop, and the draft cannot be resumed. Existing picks and pools remain available to view and export."
+                : confirm === "start"
+                  ? `Randomly reveal ${d.settings.poolSize} cards and assign ${d.players.length} players a pick order. Seats and settings will be locked.`
+                  : "The last selected card returns to the pool and the table pauses. The restored pick gets a fresh clock when you resume. Automatic picks count as individual picks."}
             </p>
             <div className="actions">
               <button autoFocus onClick={() => setConfirm("")}>
-                Cancel
+                {confirm === "cancel" ? "Keep drafting" : "Cancel"}
               </button>
               <button
-                className="primary"
+                className={confirm === "cancel" ? "danger" : "primary"}
                 disabled={busy}
                 onClick={() => act(confirm)}
               >
                 {busy
                   ? "Working…"
-                  : confirm === "start"
-                    ? "Start draft"
-                    : "Undo & pause"}
+                  : confirm === "cancel"
+                    ? "Cancel draft"
+                    : confirm === "start"
+                      ? "Start draft"
+                      : "Undo & pause"}
               </button>
             </div>
           </section>

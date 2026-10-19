@@ -17,25 +17,23 @@ test(
         auth: { uid, token: { name: uid } },
         data: { action, ...data },
       } as any);
-    await db
-      .doc("cubeCache/testcube")
-      .set({
-        at: Date.now(),
-        cube: {
-          name: "Fixture cube",
-          cards: Array.from({ length: 12 }, (_, i) => ({
-            id: "c" + i,
-            name: "Card " + i,
-            image: "",
-            back: "",
-            colors: [],
-            cmc: 1,
-            type: "Artifact",
-            text: "",
-            custom: false,
-          })),
-        },
-      });
+    await db.doc("cubeCache/testcube").set({
+      at: Date.now(),
+      cube: {
+        name: "Fixture cube",
+        cards: Array.from({ length: 12 }, (_, i) => ({
+          id: "c" + i,
+          name: "Card " + i,
+          image: "",
+          back: "",
+          colors: [],
+          cmc: 1,
+          type: "Artifact",
+          text: "",
+          custom: false,
+        })),
+      },
+    });
     const { id } = await call("host", "create", {
       name: "Integration draft",
       cubeUrl: "https://cubecobra.com/cube/list/testcube",
@@ -103,5 +101,38 @@ test(
     assert.ok(d.deadline > Date.now());
     assert.ok(d.owed[missed] >= 1 || current(d) === missed);
     await assert.rejects(call("outsider", "queue", { id, cards: ["c0"] }));
+    await assert.rejects(call("guest", "cancel", { id, revision: d.revision }));
+    await assert.rejects(
+      call("host", "cancel", { id, revision: d.revision - 1 }),
+    );
+    const picksBefore = structuredClone(d.picks);
+    await call("host", "cancel", { id, revision: d.revision });
+    d = await read();
+    assert.equal(d.status, "cancelled");
+    assert.equal(d.deadline, 0);
+    assert.equal((d as any).wakeAt, 0);
+    assert.deepEqual(d.picks, picksBefore);
+    assert.equal(d.events.at(-1)?.kind, "cancel");
+    assert.equal(
+      (await ref.collection("private").doc("undo").get()).exists,
+      false,
+    );
+    for (const action of ["pick", "resume", "undo", "start", "queue", "cancel"])
+      await assert.rejects(
+        call("host", action, {
+          id,
+          revision: d.revision,
+          card: "c4",
+          cards: [],
+        }),
+      );
+    // Paused drafts and lobbies can also be cancelled.
+    for (const status of ["paused", "lobby"]) {
+      await ref.update({ status, revision: d.revision + 1 });
+      d = await read();
+      await call("host", "cancel", { id, revision: d.revision });
+      d = await read();
+      assert.equal(d.status, "cancelled");
+    }
   },
 );

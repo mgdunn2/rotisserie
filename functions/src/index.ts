@@ -83,11 +83,23 @@ async function run(id: string, uid: string, action: string, data: any = {}) {
         throw new HttpsError("permission-denied", "Only the host can do that");
     };
     if (
-      ["pick", "start", "pause", "resume", "undo"].includes(action) &&
+      ["pick", "start", "pause", "resume", "undo", "cancel"].includes(action) &&
       data.revision !== d.revision
     )
       fail("The draft changed. Review the updated board and try again.");
-    if (action === "join") {
+    if (d.status === "cancelled" && action !== "tick")
+      fail("This draft has been cancelled");
+    if (action === "cancel") {
+      host();
+      if (!["lobby", "active", "paused"].includes(d.status))
+        fail("This draft has already ended");
+      d.status = "cancelled";
+      d.deadline = 0;
+      d.remaining = 0;
+      d.events.push({ kind: "cancel", uid, at: now });
+      tx.delete(undoRef);
+      changed = true;
+    } else if (action === "join") {
       if (d.status !== "lobby") fail("This draft has already started");
       if (!d.players.some((p) => p.uid === uid))
         tx.set(requestRef, {
@@ -227,6 +239,7 @@ export const draftAction = onCall({ cors: true }, async (request) => {
       "pause",
       "resume",
       "undo",
+      "cancel",
       "queue",
       "pick",
     ].includes(action)
